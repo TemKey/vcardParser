@@ -1,4 +1,9 @@
 import pandas as pd
+import base64
+from io import BytesIO
+
+
+from PIL import Image
 
 class VcardFile:
     @property
@@ -24,7 +29,14 @@ class VcardFile:
 
 def getliter(line):
     liter = line[:line.find(";")]
-    print(liter.find(";"))
+    pref = line[:line.find(":")]
+    pdor = line[line.find(":")+1:line.find("\n")]
+    str = line.split(';')
+    if pref.find("PHOTO") == 0 and len(pdor) > 50:
+        img = base64.b64decode(pdor)
+        image = Image.open(BytesIO(img))
+        image.show()
     if line.find(";") == -1:
         liter = ""
-    return liter;
+        return ""
+    return liter
