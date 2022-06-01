@@ -13,7 +13,7 @@ class VcardFile:
 
     def __init__(self, vcardfilename):
         self.__peple = pd.DataFrame({'UID': [""], 'N': [""], 'FN': [""],
-                                    'url': [""], 'org': [""], 'bday': ['22.01.1989'], 'photo': [""], 'title': [""]})
+                                    'url': [""], 'ORG': [""], 'bday': ['22.01.1989'], 'photo': [""], 'title': [""]})
         self.__peple = self.__peple.drop(index=0)
 
         self.__phones = pd.DataFrame({'UID': [""], 'Phone': [""]})
@@ -32,35 +32,46 @@ class VcardFile:
             telo = line[line.find(":") + 1:line.find("\n")]
             if pref.find(";") >= 0:
                 pref = pref[:pref.find(";")]
+
+            if pref == 'BEGIN':
+                peple = {}
+                phones = []
+                emails = []
+                addres = []
             if pref == "N":
-                name = telo
+                peple.update({'N': telo})
             if pref == "FN":
-                fname = telo
+                peple.update({'FN': telo})
             if pref == "TITLE":
-                title = telo
+                peple.update({'title': telo})
             if pref == "BDAY":
-                bday = telo
+                peple.update({'BDAY': telo})
             if pref == "UID":
-                UID = telo
+                peple.update({'UID': telo})
             if pref == "url":
-                url = telo
+                peple.update({'url': telo})
             if pref == "EMAIL":
-                email = telo
+                emails.append({'email': telo})
             if pref == "ORG":
-                org = telo
+                peple.update({'ORG': telo})
+            'запоминаем телефоны'
             if pref == "TEL":
-                tel = telo
+                phones.append({'Phone': telo})
+            'запоминаем адреса'
             if pref == "ADR":
-                adr = telo
+                addres.append({'Address': telo})
             if pref.find("PHOTO") != -1 and len(telo) > 50:
                 img = base64.b64decode(telo)
                 image = Image.open(BytesIO(img))
                 image.show()
+                peple.update({'photo': image})
             if pref == 'END':
-                peple = {'UID': UID, 'N': name, 'FN': fname, 'bday': bday, 'photo': image, 'org': org, 'url': url, 'title': title}
-                phones = {'UID': UID, 'Phone': name}
-                addres = {'UID': UID, 'Addres': adr}
-                emails = {'UID': UID, 'email': email}
+                for p in phones:
+                    p.update({'UID': peple["UID"]})
+                for e in emails:
+                    e.update({'UID': peple["UID"]})
+                for a in addres:
+                    a.update({'UID': peple["UID"]})
                 self.__peple = self.__peple.append(peple, ignore_index=True)
                 self.__phones = self.__phones.append(phones, ignore_index=True)
                 self.__mails = self.__mails.append(emails, ignore_index=True)
