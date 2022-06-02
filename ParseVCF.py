@@ -65,9 +65,11 @@ class VcardFile:
                     e.update({'UID': peple["UID"]})
                 for a in addres:
                     a.update({'UID': peple["UID"]})
-                self.__peple = self.__peple.append(peple, ignore_index=True)
+                p = pd.DataFrame(peple, index=[peple["UID"]])
+                self.__peple = pd.concat([self.__peple, p])
                 if len(phones) != 0:
-                    self.__phones = self.__phones.append(phones, ignore_index=True)
+                    p = pd.DataFrame(phones, index=[peple['UID']])
+                    self.__phones = pd.concat([self.__phones, p])
                 if len(emails) != 0:
                     self.__mails = self.__mails.append(emails, ignore_index=True)
                 if len(addres) != 0:
@@ -79,8 +81,8 @@ class VcardFile:
         self.__mails.to_csv("mails.csv")
         self.__address.to_csv("addres.csv")
 
-    def saveimage(self):
-        UID = self.__peple['UID']
-        UID = f'images/{UID}.jpg'
-        image.save(UID)
+    # def saveimage(self):
+        # UID = self.__peple['UID']
+        # UID = f'images/{UID}.jpg'
+        # image.save(UID)
 
