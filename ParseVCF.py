@@ -12,17 +12,10 @@ class VcardFile:
         return count
 
     def __init__(self, vcardfilename):
-        self.__peple = pd.DataFrame({'UID': [""], 'N': [""], 'FN': [""],
-                                    'url': [""], 'ORG': [""], 'bday': ['22.01.1989'], 'photo': [""], 'title': [""]})
-        self.__peple = self.__peple.drop(index=0)
-
-        self.__phones = pd.DataFrame({'UID': [""], 'Phone': [""]})
-        self.__phones = self.__phones.drop(index=0)
-
-        self.__address = pd.DataFrame({'UID': [""], 'Address': [""]})
-        self.__address = self.__address.drop(index=0)
-        self.__mails = pd.DataFrame({'UID': [""], 'email': [""]})
-        self.__mails = self.__mails.drop(index=0)
+        self.__peple = pd.DataFrame()
+        self.__phones = pd.DataFrame()
+        self.__address = pd.DataFrame()
+        self.__mails = pd.DataFrame()
 
         vcard = open(vcardfilename, "r", encoding='UTF-8')
         print(f'{vcard.name} start parsing')
@@ -63,8 +56,8 @@ class VcardFile:
             if pref.find("PHOTO") != -1 and len(telo) > 50:
                 img = base64.b64decode(telo)
                 image = Image.open(BytesIO(img))
-                image.show()
                 peple.update({'photo': image})
+
             if pref == 'END':
                 for p in phones:
                     p.update({'UID': peple["UID"]})
@@ -73,8 +66,21 @@ class VcardFile:
                 for a in addres:
                     a.update({'UID': peple["UID"]})
                 self.__peple = self.__peple.append(peple, ignore_index=True)
-                self.__phones = self.__phones.append(phones, ignore_index=True)
-                self.__mails = self.__mails.append(emails, ignore_index=True)
-                self.__address = self.__address.append(addres, ignore_index=True)
-
+                if len(phones) != 0:
+                    self.__phones = self.__phones.append(phones, ignore_index=True)
+                if len(emails) != 0:
+                    self.__mails = self.__mails.append(emails, ignore_index=True)
+                if len(addres) != 0:
+                    self.__address = self.__address.append(addres, ignore_index=True)
         print(f'{vcard.name} is parsing')
+    def savetocsv(self):
+        self.__peple.to_csv("peple.csv")
+        self.__phones.to_csv("phones.csv")
+        self.__mails.to_csv("mails.csv")
+        self.__address.to_csv("addres.csv")
+
+    def saveimage(self):
+        UID = self.__peple['UID']
+        UID = f'images/{UID}.jpg'
+        image.save(UID)
+
