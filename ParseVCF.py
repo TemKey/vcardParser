@@ -7,6 +7,9 @@ from PIL import Image
 
 class VcardFile:
     def savevcard(self, vcardfilename):
+        for index, vcard in self.__peple.iterrows():
+            fam = vcard["fam"]
+
         print(f"file {vcardfilename} is saved.")
 
     def openvcard(self, vcardfilename):
@@ -22,7 +25,6 @@ class VcardFile:
             telo = line[line.find(":") + 1:line.find("\n")]
             if pref.find(";") >= 0:
                 pref = pref[:pref.find(";")]
-
             if pref == 'BEGIN':
                 peple = {}
                 phones = []
@@ -41,17 +43,20 @@ class VcardFile:
             if pref == "url":
                 peple.update({'url': telo})
             if pref == "EMAIL":
-                emails.append({'email': telo})
+                emailtype = line[6:line.find(":", 6)]
+                emails.append({'email': telo, 'type': emailtype})
             if pref == "ORG":
                 peple.update({'ORG': telo})
             if pref == "CATEGORIES":
                 peple.update({'CATEGORIES': telo})
             'запоминаем телефоны'
             if pref == "TEL":
-                phones.append({'Phone': telo})
+                phonetype = line[4:line.find(":", 4)]
+                phones.append({'Phone': telo, 'type': phonetype})
             'запоминаем адреса'
             if pref == "ADR":
-                addres.append({'Address': telo})
+                adrtype = line[4:line.find(";", 4)]
+                addres.append({'Address': telo, 'type': adrtype})
             if pref.find("PHOTO") != -1 and len(telo) > 50:
                 img = base64.b64decode(telo)
                 image = Image.open(BytesIO(img))
