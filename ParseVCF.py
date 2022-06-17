@@ -6,12 +6,10 @@ from io import BytesIO
 from PIL import Image
 
 class VcardFile:
-    @property
-    def cardcount(self):
-        count = self.__cardcount
-        return count
+    def savevcard(self, vcardfilename):
+        print(f"file {vcardfilename} is saved.")
 
-    def __init__(self, vcardfilename):
+    def openvcard(self, vcardfilename):
         self.__peple = pd.DataFrame()
         self.__phones = pd.DataFrame()
         self.__address = pd.DataFrame()
@@ -19,7 +17,6 @@ class VcardFile:
 
         vcard = open(vcardfilename, "r", encoding='UTF-8')
         print(f'{vcard.name} start parsing')
-
         for line in vcard:
             pref = line[:line.find(":")]
             telo = line[line.find(":") + 1:line.find("\n")]
@@ -47,6 +44,8 @@ class VcardFile:
                 emails.append({'email': telo})
             if pref == "ORG":
                 peple.update({'ORG': telo})
+            if pref == "CATEGORIES":
+                peple.update({'CATEGORIES': telo})
             'запоминаем телефоны'
             if pref == "TEL":
                 phones.append({'Phone': telo})
@@ -68,21 +67,56 @@ class VcardFile:
                 p = pd.DataFrame(peple, index=[peple["UID"]])
                 self.__peple = pd.concat([self.__peple, p])
                 if len(phones) != 0:
-                    p = pd.DataFrame(phones, index=[peple['UID']])
-                    self.__phones = pd.concat([self.__phones, p])
+                    for phon in phones:
+                        p = pd.DataFrame(phon, index=[peple['UID']])
+                        self.__phones = pd.concat([self.__phones, p])
                 if len(emails) != 0:
-                    self.__mails = self.__mails.append(emails, ignore_index=True)
+                    for mai in emails:
+                        p = pd.DataFrame(mai, index=[peple['UID']])
+                        self.__mails = pd.concat([self.__mails, p])
                 if len(addres) != 0:
-                    self.__address = self.__address.append(addres, ignore_index=True)
-        print(f'{vcard.name} is parsing')
+                    for adr in addres:
+                        p = pd.DataFrame(adr, index=[peple['UID']])
+                        self.__address = pd.concat([self.__address, p])
+        self.__peple['fam'] = getFam(self.__peple['N'], "fam")
+        self.__peple['fname'] = getFam(self.__peple['N'], "fname")
+        self.__peple['sname'] = getFam(self.__peple['N'], "sname")
+        del self.__peple['N']
+        del self.__peple['FN']
+        vcard.close()
+        print(f'{vcard.name} stop parsing')
+
     def savetocsv(self):
-        self.__peple.to_csv("peple.csv")
-        self.__phones.to_csv("phones.csv")
-        self.__mails.to_csv("mails.csv")
-        self.__address.to_csv("addres.csv")
+        ppl = self.__peple
+        del ppl["photo"]
+        ppl.to_csv("peple.csv", index=False)
+        self.__phones.to_csv("phones.csv", index=False)
+        self.__mails.to_csv("mails.csv", index=False)
+        self.__address.to_csv("addres.csv", index=False)
 
     # def saveimage(self):
-        # UID = self.__peple['UID']
-        # UID = f'images/{UID}.jpg'
-        # image.save(UID)
+    #     UID = self.__peple['UID']
+    #     UID = f'images/{UID}.jpg'
+    #     image.save(UID)
 
+def splitN(pdpeple):
+    newArr = []
+    for name in pdpeple:
+        find = name.find(" ")
+        if find > 0:
+            name = name.replace(" ", ";")
+            name = name[:-1]
+        newArr.append(name)
+    return newArr
+def getFam(pdpeple, index):
+    fio = pd.DataFrame(columns=["fam", "fname", "sname"])
+    for name in pdpeple:
+        name = name.replace(" ", ";")
+        arr = name.split(";")
+        fam = arr[0]
+        fname = arr[1]
+        sname = arr[2]
+        f = pd.DataFrame({'fam': [fam], 'fname': [fname], 'sname': [sname]})
+        fio = pd.concat([fio, f])
+    result = fio[index].array
+    return result
