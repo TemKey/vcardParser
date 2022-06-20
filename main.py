@@ -3,6 +3,8 @@ from ParseVCF import VcardFile
 
 if __name__ == '__main__':
     vcf = VcardFile()
-    vcf.openvcard("Contacts.vcf")
+    vcf.openvcard("Contcts_mini.vcf")
+    vcf.saveimage()
     vcf.savetocsv()
+    vcf.savevcard("Contacts_new.vcf")
     print('compete')
