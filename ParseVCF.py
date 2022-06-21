@@ -19,6 +19,7 @@ class VcardFile:
         self.__address["region"] = self.__address["region"].fillna("")
         self.__address["pindex"] = self.__address["pindex"].fillna("")
         self.__address["country"] = self.__address["country"].fillna("")
+        self.__peple['photo'] = getphoto(self.__peple['UID'])
         data = ""
         for index, vcard in self.__peple.iterrows():
             phones = self.__phones.loc[self.__phones['UID'] == vcard['UID']]
@@ -39,6 +40,9 @@ class VcardFile:
 
         vcard = open(vcardfilename, "r", encoding='UTF-8')
         print(f'{vcard.name} start parsing')
+        pref = ""
+        pict = ""
+        isphoto = False
         for line in vcard:
             pref = line[:line.find(":")]
             telo = line[line.find(":") + 1:line.find("\n")]
@@ -76,12 +80,18 @@ class VcardFile:
             if pref == "ADR":
                 adrtype = line[4:8]
                 addres.append({'Address': telo, 'type': adrtype})
-            if pref.find("PHOTO") != -1 and len(telo) > 50:
-                img = base64.b64decode(telo)
-                image = Image.open(BytesIO(img))
-                peple.update({'photo': image})
-
+            if pref.find("PHOTO") != -1:
+                isphoto = True
+            if isphoto and telo != "VCARD":
+                pict = pict + telo
             if pref == 'END':
+                if isphoto:
+                    pict = pict.replace("\n", "")
+                    img = base64.b64decode(pict)
+                    image = Image.open(BytesIO(img))
+                    peple.update({'photo': image})
+                    pict = ""
+                    isphoto = False
                 for p in phones:
                     p.update({'UID': peple["UID"]})
                 for e in emails:
@@ -126,11 +136,12 @@ class VcardFile:
         print("Files saves to *.csv")
 
     def saveimage(self):
-        for index, images in self.__peple.iterrows():
+        i = self.__peple
+        i = i.dropna(subset="photo")
+        for id, images in i.iterrows():
             UID = images['UID']
             UID = f'vcard/images/{UID}.jpg'
-            isphoto = pd.isnull(images['photo'])
-            if not os.path.exists(UID) and not isphoto:
+            if not os.path.exists(UID):
                 image = images['photo']
                 image.save(UID)
 
@@ -173,6 +184,7 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
     tels = ""
     adress = ""
     email = ""
+    photo = ""
     FN = " ".join([peple["fam"], peple["fname"], peple["sname"]]).strip()
     for i, tel in phonebook.iterrows():
         tels = tels + f'TEL;TYPE={tel["type"]}:{tel["Phone"]}\n'
@@ -193,11 +205,28 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
         bday = ""
     else:
         bday = f'BDAY:{peple["BDAY"]}\n'
-    #PHOTO;ENCODING=BASE64;TYPE=JPEG:
+    if pd.isna(peple["photo"]):
+        photo = ""
+    else:
+        photo = f'PHOTO;ENCODING=BASE64;TYPE=JPEG:{peple["photo"]}\n'
     s = f'BEGIN:VCARD\nVERSION:3.0\n' \
         f'N:{peple["fam"]};{peple["fname"]};{peple["sname"]};;\n' \
         f'FN:{FN}\n{tels}{adress}{email}{org}{cat}{bday}' \
         f'UID:{peple["UID"]}\n' \
-        f'X-ACCOUNT:com.android.huawei.phone;Phone\n' \
+        f'X-ACCOUNT:com.android.huawei.phone;Phone\n{photo}' \
         f'END:VCARD\n'
     return s
+
+def getphoto(UIDlist):
+    photolist = []
+    for id in UIDlist:
+        path = f'vcard/images/{id}.jpg'
+        if os.path.exists(path):
+            img = open(path, 'rb')
+            imgr = img.read()
+            image = base64.b64encode(imgr)
+            photolist.append(image.decode('utf-8'))
+        else:
+            photolist.append(float("nan"))
+    result = pd.Series(photolist)
+    return result
