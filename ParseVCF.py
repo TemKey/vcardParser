@@ -90,9 +90,13 @@ class VcardFile:
             if pref == 'END':
                 if isphoto:
                     pict = pict.replace("\n", "")
-                    img = base64.b64decode(pict)
-                    image = Image.open(BytesIO(img))
-                    peple.update({'photo': image})
+                    try:
+                        img = base64.b64decode(pict)
+                        image = Image.open(BytesIO(img))
+                        peple.update({'photo': image})
+                    except:
+                        print(peple['N'] + " bad photo")
+                        return 0
                     pict = ""
                     isphoto = False
                 for p in phones:
