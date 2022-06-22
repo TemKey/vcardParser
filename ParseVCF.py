@@ -40,7 +40,6 @@ class VcardFile:
 
         vcard = open(vcardfilename, "r", encoding='UTF-8')
         print(f'{vcard.name} start parsing')
-        pref = ""
         pict = ""
         isphoto = False
         for line in vcard:
@@ -57,6 +56,8 @@ class VcardFile:
                 peple.update({'N': telo})
             if pref == "FN":
                 peple.update({'FN': telo})
+            if pref == "NOTE":
+                peple.update({'NOTE': telo})
             if pref == "TITLE":
                 peple.update({'title': telo})
             if pref == "BDAY":
@@ -65,8 +66,10 @@ class VcardFile:
                 peple.update({'UID': telo})
             if pref == "url":
                 peple.update({'url': telo})
+            if pref == "X-ANNIVERSARY":
+                peple.update({'X-ANNIVERSARY': telo})
             if pref == "EMAIL":
-                emailtype = line[6:line.find(":", 6)]
+                emailtype = line[line.find("=")+1:line.find(":", 6)]
                 emails.append({'email': telo, 'type': emailtype})
             if pref == "ORG":
                 peple.update({'ORG': telo})
@@ -74,11 +77,11 @@ class VcardFile:
                 peple.update({'CATEGORIES': telo})
             'запоминаем телефоны'
             if pref == "TEL":
-                phonetype = line[4:line.find(":", 4)]
+                phonetype = line[line.find("=")+1:line.find(":", 4)]
                 phones.append({'Phone': telo, 'type': phonetype})
             'запоминаем адреса'
             if pref == "ADR":
-                adrtype = line[4:8]
+                adrtype = line[line.find("=")+1:line.find(":")]
                 addres.append({'Address': telo, 'type': adrtype})
             if pref.find("PHOTO") != -1:
                 isphoto = True
@@ -184,7 +187,6 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
     tels = ""
     adress = ""
     email = ""
-    photo = ""
     FN = " ".join([peple["fam"], peple["fname"], peple["sname"]]).strip()
     for i, tel in phonebook.iterrows():
         tels = tels + f'TEL;TYPE={tel["type"]}:{tel["Phone"]}\n'
@@ -209,9 +211,21 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
         photo = ""
     else:
         photo = f'PHOTO;ENCODING=BASE64;TYPE=JPEG:{peple["photo"]}\n'
+    if pd.isna(peple["NOTE"]):
+        note = ""
+    else:
+        note = f'NOTE:{peple["NOTE"]}\n'
+    if pd.isna(peple["URL"]):
+        url = ""
+    else:
+        url = f'URL:{peple["URL"]}\n'
+    if pd.isna(peple["X-ANNIVERSARY"]):
+        ANNIVERSARY = ""
+    else:
+        ANNIVERSARY = f'X-ANNIVERSARY:{peple["X-ANNIVERSARY"]}\n'
     s = f'BEGIN:VCARD\nVERSION:3.0\n' \
         f'N:{peple["fam"]};{peple["fname"]};{peple["sname"]};;\n' \
-        f'FN:{FN}\n{tels}{adress}{email}{org}{cat}{bday}' \
+        f'FN:{FN}\n{tels}{adress}{email}{org}{cat}{bday}{note}{url}{ANNIVERSARY}' \
         f'UID:{peple["UID"]}\n' \
         f'X-ACCOUNT:com.android.huawei.phone;Phone\n{photo}' \
         f'END:VCARD\n'
