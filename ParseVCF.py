@@ -64,7 +64,7 @@ class VcardFile:
                 peple.update({'BDAY': telo})
             if pref == "UID":
                 peple.update({'UID': telo})
-            if pref == "url":
+            if pref == "URL":
                 peple.update({'url': telo})
             if pref == "X-ANNIVERSARY":
                 peple.update({'X-ANNIVERSARY': telo})
@@ -215,14 +215,23 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
         note = ""
     else:
         note = f'NOTE:{peple["NOTE"]}\n'
-    if pd.isna(peple["URL"]):
+    try:
+        if pd.isna(peple["url"]):
+            url = ""
+        else:
+            url = f'URL:{peple["url"]}\n'
+    except:
+        print("in csv file not column URL")
         url = ""
-    else:
-        url = f'URL:{peple["URL"]}\n'
-    if pd.isna(peple["X-ANNIVERSARY"]):
+        pass
+    try:
+        if pd.isna(peple["X-ANNIVERSARY"]):
+            ANNIVERSARY = ""
+        else:
+            ANNIVERSARY = f'X-ANNIVERSARY:{peple["X-ANNIVERSARY"]}\n'
+    except:
+        print("in csv not coumn X-ANNIVERSARY")
         ANNIVERSARY = ""
-    else:
-        ANNIVERSARY = f'X-ANNIVERSARY:{peple["X-ANNIVERSARY"]}\n'
     s = f'BEGIN:VCARD\nVERSION:3.0\n' \
         f'N:{peple["fam"]};{peple["fname"]};{peple["sname"]};;\n' \
         f'FN:{FN}\n{tels}{adress}{email}{org}{cat}{bday}{note}{url}{ANNIVERSARY}' \
