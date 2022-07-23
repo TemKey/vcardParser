@@ -2,8 +2,10 @@ import pandas as pd
 import base64
 from io import BytesIO
 import os.path
-
+import pyodbc
 from PIL import Image
+import progressbar
+import sys
 
 class VcardFile:
     def savevcard(self, vcardfilename):
@@ -33,6 +35,7 @@ class VcardFile:
 
         print(f"file {vcardfilename} is saved.")
     def openvcard(self, vcardfilename):
+        barсounter = 0
         self.__peple = pd.DataFrame()
         self.__phones = pd.DataFrame()
         self.__address = pd.DataFrame()
@@ -42,83 +45,89 @@ class VcardFile:
         print(f'{vcard.name} start parsing')
         pict = ""
         isphoto = False
-        for line in vcard:
-            pref = line[:line.find(":")]
-            telo = line[line.find(":") + 1:line.find("\n")]
-            if pref.find(";") >= 0:
-                pref = pref[:pref.find(";")]
-            if pref == 'BEGIN':
-                peple = {}
-                phones = []
-                emails = []
-                addres = []
-            if pref == "N":
-                peple.update({'N': telo})
-            if pref == "FN":
-                peple.update({'FN': telo})
-            if pref == "NOTE":
-                peple.update({'NOTE': telo})
-            if pref == "TITLE":
-                peple.update({'title': telo})
-            if pref == "BDAY":
-                peple.update({'BDAY': telo})
-            if pref == "UID":
-                peple.update({'UID': telo})
-            if pref == "URL":
-                peple.update({'url': telo})
-            if pref == "X-ANNIVERSARY":
-                peple.update({'X-ANNIVERSARY': telo})
-            if pref == "EMAIL":
-                emailtype = line[line.find("=")+1:line.find(":", 6)]
-                emails.append({'email': telo, 'type': emailtype})
-            if pref == "ORG":
-                peple.update({'ORG': telo})
-            if pref == "CATEGORIES":
-                peple.update({'CATEGORIES': telo})
-            'запоминаем телефоны'
-            if pref == "TEL":
-                phonetype = line[line.find("=")+1:line.find(":", 4)]
-                phones.append({'Phone': telo, 'type': phonetype})
-            'запоминаем адреса'
-            if pref == "ADR":
-                adrtype = line[line.find("=")+1:line.find(":")]
-                addres.append({'Address': telo, 'type': adrtype})
-            if pref.find("PHOTO") != -1:
-                isphoto = True
-            if isphoto and telo != "VCARD":
-                pict = pict + telo
-            if pref == 'END':
-                if isphoto:
-                    pict = pict.replace("\n", "")
-                    try:
-                        img = base64.b64decode(pict)
-                        image = Image.open(BytesIO(img))
-                        peple.update({'photo': image})
-                    except:
-                        print(peple['N'] + " bad photo")
-                        return 0
-                    pict = ""
-                    isphoto = False
-                for p in phones:
-                    p.update({'UID': peple["UID"]})
-                for e in emails:
-                    e.update({'UID': peple["UID"]})
-                for a in addres:
-                    a.update({'UID': peple["UID"]})
-                p = pd.DataFrame(peple, index=[peple["UID"]])
-                self.__peple = pd.concat([self.__peple, p])
-                if len(phones) != 0:
-                    for phon in phones:
-                        p = pd.DataFrame(phon, index=[peple['UID']])
-                        self.__phones = pd.concat([self.__phones, p])
-                if len(emails) != 0:
-                    for mai in emails:
-                        p = pd.DataFrame(mai, index=[peple['UID']])
-                        self.__mails = pd.concat([self.__mails, p])
-                if len(addres) != 0:
-                    for adr in addres:
-                        p = pd.DataFrame(adr, index=[peple['UID']])
-                        self.__address = pd.concat([self.__address, p])
+        lenght = 1000
+        with progressbar.ProgressBar() as bar:
+            for line in vcard:
+                pref = line[:line.find(":")]
+                telo = line[line.find(":") + 1:line.find("\n")]
+                if pref.find(";") >= 0:
+                    pref = pref[:pref.find(";")]
+                if pref == 'BEGIN':
+                    peple = {}
+                    phones = []
+                    emails = []
+                    addres = []
+                if pref == "N":
+                    peple.update({'N': telo})
+                if pref == "FN":
+                    peple.update({'FN': telo})
+                if pref == "NOTE":
+                    peple.update({'NOTE': telo})
+                if pref == "TITLE":
+                    peple.update({'title': telo})
+                if pref == "BDAY":
+                    peple.update({'BDAY': telo})
+                if pref == "UID":
+                    peple.update({'UID': telo})
+                if pref == "URL":
+                    peple.update({'url': telo})
+                if pref == "X-ANNIVERSARY":
+                    peple.update({'X-ANNIVERSARY': telo})
+                if pref == "EMAIL":
+                    emailtype = line[line.find("=")+1:line.find(":", 6)]
+                    emails.append({'email': telo, 'type': emailtype})
+                if pref == "ORG":
+                    peple.update({'ORG': telo})
+                if pref == "CATEGORIES":
+                    peple.update({'CATEGORIES': telo})
+                'запоминаем телефоны'
+                if pref == "TEL":
+                    phonetype = line[line.find("=")+1:line.find(":", 4)]
+                    phones.append({'Phone': telo, 'type': phonetype})
+                'запоминаем адреса'
+                if pref == "ADR":
+                    adrtype = line[line.find("=")+1:line.find(":")]
+                    addres.append({'Address': telo, 'type': adrtype})
+                if pref.find("PHOTO") != -1:
+                    isphoto = True
+                if isphoto and telo != "VCARD":
+                    pict = pict + telo
+                if pref == 'END':
+                    if isphoto:
+                        pict = pict.replace("\n", "")
+                        try:
+                            if len(pict) % 4:
+                                pict += '=' * (len(pict) % 4)
+                            img = base64.b64decode(pict)
+                            image = Image.open(BytesIO(img))
+                            peple.update({'photo': image})
+                        except:
+                            print(peple['N'] + " bad photo")
+                            return 0
+                        pict = ""
+                        isphoto = False
+                    for p in phones:
+                        p.update({'UID': peple["UID"]})
+                    for e in emails:
+                        e.update({'UID': peple["UID"]})
+                    for a in addres:
+                        a.update({'UID': peple["UID"]})
+                    p = pd.DataFrame(peple, index=[peple["UID"]])
+                    self.__peple = pd.concat([self.__peple, p])
+                    if len(phones) != 0:
+                        for phon in phones:
+                            p = pd.DataFrame(phon, index=[peple['UID']])
+                            self.__phones = pd.concat([self.__phones, p])
+                    if len(emails) != 0:
+                        for mai in emails:
+                            p = pd.DataFrame(mai, index=[peple['UID']])
+                            self.__mails = pd.concat([self.__mails, p])
+                    if len(addres) != 0:
+                        for adr in addres:
+                            p = pd.DataFrame(adr, index=[peple['UID']])
+                            self.__address = pd.concat([self.__address, p])
+                barсounter += 1
+                bar.update(barсounter)
         self.__peple['fam'] = getFam(self.__peple['N'], "fam")
         self.__peple['fname'] = getFam(self.__peple['N'], "fname")
         self.__peple['sname'] = getFam(self.__peple['N'], "sname")
@@ -141,6 +150,55 @@ class VcardFile:
         self.__mails.to_csv("vcard/mails.csv", index=False)
         self.__address.to_csv("vcard/adress.csv", index=False)
         print("Files saves to *.csv")
+    def toaccess(self):
+        self.__peple['hash'] = (self.__peple['fname'].apply(hash) + self.__peple['ORG'].apply(hash) +
+                                self.__peple['title'].apply(hash)) % sys.maxsize
+        conn = pyodbc.connect('DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:\\Users\\TemKey\\PycharmProjects\\vcardParser\\vcard.accdb;')
+        cursor = conn.cursor()  # создается курсор
+        cursor.fast_executemany = True
+        # INSERT_SQL = "INSERT INTO people(hash, title, ORG, UID, CATEGORIES, NOTE, BDAY, url, X-ANNIVERSARY, fam, fname, sname) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+        INSERT_SQL = "INSERT INTO som (Код) VALUES (?)"
+        people =  self.__peple.astype(object).where(pd.notnull(self.__peple), None)
+        # del people["photo"]
+        # try:
+        #     cursor.executemany(INSERT_SQL, people["fname"].values.tolist())
+        #     cursor.commit()
+        # except:
+        #     print("error executemany")
+        #     pass
+        for r, p in people.iterrows():
+            try:
+                cursor.execute("INSERT INTO people ("
+                               "title, "
+                               "ORG, "
+                               "UID, "
+                               "CATEGORIES, "
+                               "notes, "
+                               "BDAY, "
+                               "url, "
+                               "ANNIVERSARY, "
+                               "fam, "
+                               "fname, "
+                               "sname) "
+                               "VALUES ("
+                               "?,?,?,?,?,?,?,?,?,?,?)",
+                               ([
+                                p["title"],
+                                p["ORG"],
+                                p["UID"],
+                                p["CATEGORIES"],
+                                p["NOTE"],
+                                p["BDAY"],
+                                p["url"],
+                                p["X-ANNIVERSARY"],
+                                p["fam"],
+                                p["fname"],
+                                p["sname"]
+                               ]))
+                cursor.commit()
+            except:
+                print("error")
+                pass
 
     def saveimage(self):
         i = self.__peple
