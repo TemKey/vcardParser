@@ -21,7 +21,7 @@ class VcardFile:
         self.__address["region"] = self.__address["region"].fillna("")
         self.__address["pindex"] = self.__address["pindex"].fillna("")
         self.__address["country"] = self.__address["country"].fillna("")
-        self.__peple['photo'] = getphoto(self.__peple['UID'])
+
         data = ""
         for index, vcard in self.__peple.iterrows():
             phones = self.__phones.loc[self.__phones['UID'] == vcard['UID']]
@@ -32,6 +32,40 @@ class VcardFile:
 
         vcardfile.write(data)
         vcardfile.close()
+
+    def savevcardfromaccess(self, vcardfilename):
+        print("save VCard from MS Access")
+        conn = pyodbc.connect(
+            'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:\\Users\\TemKey\\PycharmProjects\\vcardParser\\vcard.accdb;')
+        cursor = conn.cursor()  # создается курсор
+        self.__peple = pd.read_sql("SELECT * FROM people;", conn)
+        self.__mails = pd.read_sql("SELECT * FROM mails", conn)
+        self.__address = pd.read_sql("SELECT * FROM addres", conn)
+        self.__phones = pd.read_sql("SELECT * FROM phones", conn)
+        self.__peple["fam"] = self.__peple["fam"].fillna("")
+        self.__peple["fname"] = self.__peple["fname"].fillna("")
+        self.__peple["sname"] = self.__peple["sname"].fillna("")
+        self.__peple["ORG"] = self.__peple["ORG"].apply(makekavi)
+        self.__address["streethouse"] = self.__address["streethouse"].fillna("")
+        self.__address["city"] = self.__address["city"].fillna("")
+        self.__address["region"] = self.__address["region"].fillna("")
+        self.__address["pindex"] = self.__address["pindex"].fillna("")
+        self.__address["country"] = self.__address["country"].fillna("")
+        self.__peple['photo'] = self.__peple['image'].apply(getphotosql)
+        data = ""
+        for index, vcard in self.__peple.iterrows():
+
+            phones = self.__phones.loc[self.__phones['UID'] == vcard['UID']]
+            adress = self.__address.loc[self.__address['UID'] == vcard['UID']]
+            emails = self.__mails.loc[self.__mails['UID'] == vcard['UID']]
+            print(vcard["fname"])
+            if vcard["photo"] != None:
+                image = Image.open(vcard["image"])
+                image.show()
+            with open(vcardfilename, "w", encoding='UTF-8') as vcardfile:
+                data = data + makestring(vcard, phones, adress, emails)
+                vcardfile.write(data)
+        conn.close()
 
         print(f"file {vcardfilename} is saved.")
     def openvcard(self, vcardfilename):
@@ -45,14 +79,16 @@ class VcardFile:
         print(f'{vcard.name} start parsing')
         pict = ""
         isphoto = False
-        lenght = 1000
         with progressbar.ProgressBar() as bar:
             for line in vcard:
                 pref = line[:line.find(":")]
                 telo = line[line.find(":") + 1:line.find("\n")]
+                telo = telo.replace("\\", "")
                 if pref.find(";") >= 0:
                     pref = pref[:pref.find(";")]
                 if pref == 'BEGIN':
+                    barсounter += 1
+                    bar.update(barсounter)
                     peple = {}
                     phones = []
                     emails = []
@@ -80,11 +116,11 @@ class VcardFile:
                     peple.update({'ORG': telo})
                 if pref == "CATEGORIES":
                     peple.update({'CATEGORIES': telo})
-                'запоминаем телефоны'
+                # 'запоминаем телефоны'
                 if pref == "TEL":
                     phonetype = line[line.find("=")+1:line.find(":", 4)]
                     phones.append({'Phone': telo, 'type': phonetype})
-                'запоминаем адреса'
+                # 'запоминаем адреса'
                 if pref == "ADR":
                     adrtype = line[line.find("=")+1:line.find(":")]
                     addres.append({'Address': telo, 'type': adrtype})
@@ -126,8 +162,6 @@ class VcardFile:
                         for adr in addres:
                             p = pd.DataFrame(adr, index=[peple['UID']])
                             self.__address = pd.concat([self.__address, p])
-                barсounter += 1
-                bar.update(barсounter)
         self.__peple['fam'] = getFam(self.__peple['N'], "fam")
         self.__peple['fname'] = getFam(self.__peple['N'], "fname")
         self.__peple['sname'] = getFam(self.__peple['N'], "sname")
@@ -151,21 +185,14 @@ class VcardFile:
         self.__address.to_csv("vcard/adress.csv", index=False)
         print("Files saves to *.csv")
     def toaccess(self):
-        self.__peple['hash'] = (self.__peple['fname'].apply(hash) + self.__peple['ORG'].apply(hash) +
-                                self.__peple['title'].apply(hash)) % sys.maxsize
+        barсounter = 0
+        print("save data to MS Access")
+        # self.__peple['hash'] = (self.__peple['fname'].apply(hash) + self.__peple['ORG'].apply(hash) +
+        #                         self.__peple['title'].apply(hash)) % sys.maxsize
         conn = pyodbc.connect('DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:\\Users\\TemKey\\PycharmProjects\\vcardParser\\vcard.accdb;')
         cursor = conn.cursor()  # создается курсор
-        cursor.fast_executemany = True
-        # INSERT_SQL = "INSERT INTO people(hash, title, ORG, UID, CATEGORIES, NOTE, BDAY, url, X-ANNIVERSARY, fam, fname, sname) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
-        INSERT_SQL = "INSERT INTO som (Код) VALUES (?)"
         people =  self.__peple.astype(object).where(pd.notnull(self.__peple), None)
-        # del people["photo"]
-        # try:
-        #     cursor.executemany(INSERT_SQL, people["fname"].values.tolist())
-        #     cursor.commit()
-        # except:
-        #     print("error executemany")
-        #     pass
+        people["ORG"] = people["ORG"].replace('\\"', "")
         for r, p in people.iterrows():
             try:
                 cursor.execute("INSERT INTO people ("
@@ -197,8 +224,64 @@ class VcardFile:
                                ]))
                 cursor.commit()
             except:
-                print("error")
                 pass
+        for r, p in self.__mails.iterrows():
+            try:
+                cursor.execute("INSERT INTO mails ("
+                               "mail, "
+                               "type, "
+                               "UID) "
+                               "VALUES ("
+                               "?,?,?)",
+                               ([
+                                p["email"],
+                                p["type"],
+                                p["UID"]
+                               ]))
+                cursor.commit()
+            except:
+                pass
+        for r, p in self.__phones.iterrows():
+            try:
+                cursor.execute("INSERT INTO phones ("
+                               "phone, "
+                               "type, "
+                               "UID) "
+                               "VALUES ("
+                               "?,?,?)",
+                               ([
+                                   p["Phone"],
+                                   p["type"],
+                                   p["UID"]
+                               ]))
+                cursor.commit()
+            except:
+                pass
+        for r, p in self.__address.iterrows():
+            try:
+                cursor.execute("INSERT INTO addres ("
+                               "UID, "
+                               "type, "
+                               "streethouse, "
+                               "city, "
+                               "region, "
+                               "pindex, "
+                               "country) "
+                               "VALUES ("
+                               "?,?,?,?,?,?,?)",
+                               ([
+                                   p["UID"],
+                                   p["type"],
+                                   p["streethouse"],
+                                   p["city"],
+                                   p["region"],
+                                   p["pindex"],
+                                   p["country"]
+                               ]))
+                cursor.commit()
+            except:
+                pass
+        conn.close()
 
     def saveimage(self):
         i = self.__peple
@@ -253,7 +336,7 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
     for i, tel in phonebook.iterrows():
         tels = tels + f'TEL;TYPE={tel["type"]}:{tel["Phone"]}\n'
     for i, mail in emeilsbook.iterrows():
-            email = email + f'EMAIL;TYPE={mail["type"]}:{mail["email"]}\n'
+            email = email + f'EMAIL;TYPE={mail["type"]}:{mail["mail"]}\n'
     for i, adr in adressbook.iterrows():
         adress = adress + f'ADR;TYPE={adr["type"]}:;;{adr["streethouse"]};' \
                           f'{adr["city"]};{adr["region"]};{adr["pindex"]};{adr["country"]}\n'
@@ -273,10 +356,10 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
         photo = ""
     else:
         photo = f'PHOTO;ENCODING=BASE64;TYPE=JPEG:{peple["photo"]}\n'
-    if pd.isna(peple["NOTE"]):
+    if pd.isna(peple["notes"]):
         note = ""
     else:
-        note = f'NOTE:{peple["NOTE"]}\n'
+        note = f'NOTE:{peple["notes"]}\n'
     try:
         if pd.isna(peple["url"]):
             url = ""
@@ -287,10 +370,10 @@ def makestring(peple, phonebook=None, adressbook=None, emeilsbook=None):
         url = ""
         pass
     try:
-        if pd.isna(peple["X-ANNIVERSARY"]):
+        if pd.isna(peple["ANNIVERSARY"]):
             ANNIVERSARY = ""
         else:
-            ANNIVERSARY = f'X-ANNIVERSARY:{peple["X-ANNIVERSARY"]}\n'
+            ANNIVERSARY = f'X-ANNIVERSARY:{peple["ANNIVERSARY"]}\n'
     except:
         print("in csv not coumn X-ANNIVERSARY")
         ANNIVERSARY = ""
@@ -315,3 +398,23 @@ def getphoto(UIDlist):
             photolist.append(float("nan"))
     result = pd.Series(photolist)
     return result
+
+def getphotosql(path):
+    photolist = []
+    # for id, path in imagepath.iterrows():
+    if path == None:
+        return
+    if os.path.exists(path):
+        img = open(path, 'rb')
+        imgr = img.read()
+        image = base64.b64encode(imgr)
+        # photolist.append(image.decode('utf-8'))
+        return image.decode('utf-8')
+    # else:
+        # photolist.append(float("nan"))
+    # result = pd.Series(photolist)
+    # return result
+def makekavi(string):
+    if string == None:
+        return
+    return string.replace("\"", "\\\"")

@@ -32,9 +32,10 @@ if __name__ == '__main__':
         #vcf.saveimage()
         #vcf.savetocsv()
     if opencard == "2":
-        vcf.savevcard("Contacts_new.vcf")
+        # vcf.savevcard("Contacts_new.vcf")
+        vcf.savevcardfromaccess("Contacts_new.vcf")
     if opencard == "3":
         WhatsUp.connectwp(makephonelist())
-    else:
+    if opencard not in ["1", "2", "3"]:
         print("bad number")
     print('compete')
